@@ -156,6 +156,11 @@ header h1 {
 .btn-danger:hover { background: #c0392b; }
 .btn-small { padding: 0.35rem 0.85rem; font-size: 0.8rem; }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ─── Task Cards ────────────────────────────────────── */
 .task-list {
   display: flex;

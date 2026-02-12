@@ -6,11 +6,20 @@
   "scripts": {
     "start": "func start",
     "prestart": "npm run build",
-    "build": "echo build complete"
+    "build": "vite build",
+    "dev": "vite",
+    "dev:api": "func start",
+    "dev:full": "concurrently \"npm run dev\" \"npm run dev:api\""
   },
   "dependencies": {
-    "@azure/functions": "^4.5.0",
     "@azure/cosmos": "^4.2.0",
+    "@azure/functions": "^4.5.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "vite": "^7.3.1"
   }
 }

@@ -1,0 +1,13 @@
+*.js.map
+.git*
+.vscode
+local.settings.json
+test
+data.json
+deploy.ps1
+start.cmd
+ARCHITECTURE.md
+README.md
+client/
+vite.config.js
+node_modules/.vite

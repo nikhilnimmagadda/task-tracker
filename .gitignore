@@ -7,9 +7,9 @@ local.settings.json
 # Local data store
 data.json
 
-# Build output
+# Build output (Vite builds React into public/)
+public/
 dist/
-.funcignore
 
 # IDE
 .vscode/
