@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Azure Functions local settings (contains connection strings)
+local.settings.json
+
+# Local data store
+data.json
+
+# Build output
+dist/
+.funcignore
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# Deployment helpers
+start.cmd

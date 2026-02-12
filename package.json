@@ -1,0 +1,16 @@
+{
+  "name": "task-tracker",
+  "version": "1.0.0",
+  "description": "Task & Progress Tracker - Azure Functions + Cosmos DB",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start",
+    "prestart": "npm run build",
+    "build": "echo build complete"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/cosmos": "^4.2.0",
+    "uuid": "^9.0.0"
+  }
+}
