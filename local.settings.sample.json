@@ -7,7 +7,9 @@
     "COSMOS_KEY": "<your-cosmos-db-primary-key>",
     "COSMOS_DATABASE": "tasktracker",
     "COSMOS_CONTAINER_TASKS": "tasks",
-    "COSMOS_CONTAINER_COMMENTS": "comments"
+    "COSMOS_CONTAINER_COMMENTS": "comments",
+    "AZURE_TENANT_ID": "<your-entra-id-tenant-id>",
+    "AZURE_CLIENT_ID": "<your-entra-id-app-client-id>"
   },
   "Host": {
     "CORS": "*",

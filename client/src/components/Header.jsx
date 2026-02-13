@@ -1,9 +1,19 @@
 import React from 'react';
 
-export default function Header({ activeTab, onTabChange }) {
+export default function Header({ activeTab, onTabChange, userName, onLogout }) {
   return (
     <header>
-      <h1>📋 Task Tracker</h1>
+      <div className="header-top">
+        <h1>📋 Task Tracker</h1>
+        {userName && (
+          <div className="user-info">
+            <span className="user-name">👤 {userName}</span>
+            <button className="btn btn-secondary btn-small" onClick={onLogout}>
+              Sign out
+            </button>
+          </div>
+        )}
+      </div>
       <p className="subtitle">Track your progress, manage priorities, take notes</p>
       <nav className="nav-tabs">
         <button

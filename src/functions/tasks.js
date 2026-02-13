@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const { getContainers } = require('../cosmosClient');
+const { authenticate } = require('../auth');
 const { v4: uuidv4 } = require('uuid');
 
 // ─── GET /api/tasks ─────────────────────────────────
@@ -8,17 +9,20 @@ app.http('getTasks', {
   authLevel: 'anonymous',
   route: 'api/tasks',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer } = await getContainers();
       const url = new URL(request.url);
       const status = url.searchParams.get('status');
       const sort = url.searchParams.get('sort');
 
-      let query = 'SELECT * FROM c';
-      const params = [];
+      let query = 'SELECT * FROM c WHERE c.userId = @userId';
+      const params = [{ name: '@userId', value: user.userId }];
 
       if (status && ['todo', 'in-progress', 'done'].includes(status)) {
-        query += ' WHERE c.status = @status';
+        query += ' AND c.status = @status';
         params.push({ name: '@status', value: status });
       }
 
@@ -50,13 +54,18 @@ app.http('getTask', {
   authLevel: 'anonymous',
   route: 'api/tasks/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer, commentsContainer } = await getContainers();
       const id = request.params.id;
 
-      // Find the task (cross-partition query since we don't know partitionKey)
       const { resources: tasks } = await tasksContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (tasks.length === 0) {
@@ -87,6 +96,9 @@ app.http('createTask', {
   authLevel: 'anonymous',
   route: 'api/tasks',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer } = await getContainers();
       const body = await request.json();
@@ -97,7 +109,8 @@ app.http('createTask', {
 
       const task = {
         id: uuidv4(),
-        partitionKey: 'task', // single partition for simplicity; scale later
+        partitionKey: 'task',
+        userId: user.userId,
         title: body.title.trim(),
         description: (body.description || '').trim(),
         status: ['todo', 'in-progress', 'done'].includes(body.status) ? body.status : 'todo',
@@ -122,14 +135,19 @@ app.http('updateTask', {
   authLevel: 'anonymous',
   route: 'api/tasks/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer } = await getContainers();
       const id = request.params.id;
       const body = await request.json();
 
-      // Find existing task
       const { resources: tasks } = await tasksContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (tasks.length === 0) {
@@ -162,13 +180,18 @@ app.http('deleteTask', {
   authLevel: 'anonymous',
   route: 'api/tasks/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer, commentsContainer } = await getContainers();
       const id = request.params.id;
 
-      // Find existing task
       const { resources: tasks } = await tasksContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (tasks.length === 0) {

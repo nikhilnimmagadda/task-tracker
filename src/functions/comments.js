@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const { getContainers } = require('../cosmosClient');
+const { authenticate } = require('../auth');
 const { v4: uuidv4 } = require('uuid');
 
 // ─── POST /api/tasks/:taskId/comments ───────────────
@@ -8,14 +9,20 @@ app.http('addComment', {
   authLevel: 'anonymous',
   route: 'api/tasks/{taskId}/comments',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { tasksContainer, commentsContainer } = await getContainers();
       const taskId = request.params.taskId;
       const body = await request.json();
 
-      // Verify task exists
+      // Verify task exists AND belongs to user
       const { resources: tasks } = await tasksContainer.items
-        .query({ query: 'SELECT c.id FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: taskId }] })
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: taskId }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (tasks.length === 0) {
@@ -29,6 +36,7 @@ app.http('addComment', {
       const comment = {
         id: uuidv4(),
         taskId: taskId,
+        userId: user.userId,
         text: body.text.trim(),
         createdAt: new Date().toISOString()
       };
@@ -48,13 +56,19 @@ app.http('deleteComment', {
   authLevel: 'anonymous',
   route: 'api/comments/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { commentsContainer } = await getContainers();
       const id = request.params.id;
 
-      // Find the comment to get its partition key (taskId)
+      // Find the comment — verify ownership
       const { resources: comments } = await commentsContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (comments.length === 0) {
