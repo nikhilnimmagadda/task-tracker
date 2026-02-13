@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const { getContainers } = require('../cosmosClient');
+const { authenticate } = require('../auth');
 const { v4: uuidv4 } = require('uuid');
 
 const MAX_CONTENT_LENGTH = 500;
@@ -10,9 +11,24 @@ app.http('getPages', {
   authLevel: 'anonymous',
   route: 'api/folders/{folderId}/pages',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
-      const { pagesContainer } = await getContainers();
+      const { foldersContainer, pagesContainer } = await getContainers();
       const folderId = request.params.folderId;
+
+      // Verify folder belongs to user
+      const { resources: folders } = await foldersContainer.items
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: folderId }, { name: '@userId', value: user.userId }]
+        })
+        .fetchAll();
+
+      if (folders.length === 0) {
+        return { status: 404, jsonBody: { error: 'Folder not found' } };
+      }
 
       const { resources: pages } = await pagesContainer.items
         .query({
@@ -36,8 +52,11 @@ app.http('getPage', {
   authLevel: 'anonymous',
   route: 'api/pages/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
-      const { pagesContainer } = await getContainers();
+      const { pagesContainer, foldersContainer } = await getContainers();
       const id = request.params.id;
 
       const { resources: pages } = await pagesContainer.items
@@ -45,6 +64,18 @@ app.http('getPage', {
         .fetchAll();
 
       if (pages.length === 0) {
+        return { status: 404, jsonBody: { error: 'Page not found' } };
+      }
+
+      // Verify the page's folder belongs to user
+      const { resources: folders } = await foldersContainer.items
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: pages[0].folderId }, { name: '@userId', value: user.userId }]
+        })
+        .fetchAll();
+
+      if (folders.length === 0) {
         return { status: 404, jsonBody: { error: 'Page not found' } };
       }
 
@@ -62,14 +93,20 @@ app.http('createPage', {
   authLevel: 'anonymous',
   route: 'api/folders/{folderId}/pages',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { foldersContainer, pagesContainer } = await getContainers();
       const folderId = request.params.folderId;
       const body = await request.json();
 
-      // Verify folder exists
+      // Verify folder belongs to user
       const { resources: folders } = await foldersContainer.items
-        .query({ query: 'SELECT c.id FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: folderId }] })
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: folderId }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (folders.length === 0) {
@@ -88,6 +125,7 @@ app.http('createPage', {
       const page = {
         id: uuidv4(),
         folderId,
+        userId: user.userId,
         title: body.title.trim(),
         content,
         createdAt: new Date().toISOString(),
@@ -109,8 +147,11 @@ app.http('updatePage', {
   authLevel: 'anonymous',
   route: 'api/pages/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
-      const { pagesContainer } = await getContainers();
+      const { pagesContainer, foldersContainer } = await getContainers();
       const id = request.params.id;
       const body = await request.json();
 
@@ -119,6 +160,18 @@ app.http('updatePage', {
         .fetchAll();
 
       if (pages.length === 0) {
+        return { status: 404, jsonBody: { error: 'Page not found' } };
+      }
+
+      // Verify the page's folder belongs to user
+      const { resources: folders } = await foldersContainer.items
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: pages[0].folderId }, { name: '@userId', value: user.userId }]
+        })
+        .fetchAll();
+
+      if (folders.length === 0) {
         return { status: 404, jsonBody: { error: 'Page not found' } };
       }
 
@@ -148,8 +201,11 @@ app.http('deletePage', {
   authLevel: 'anonymous',
   route: 'api/pages/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
-      const { pagesContainer } = await getContainers();
+      const { pagesContainer, foldersContainer } = await getContainers();
       const id = request.params.id;
 
       const { resources: pages } = await pagesContainer.items
@@ -157,6 +213,18 @@ app.http('deletePage', {
         .fetchAll();
 
       if (pages.length === 0) {
+        return { status: 404, jsonBody: { error: 'Page not found' } };
+      }
+
+      // Verify the page's folder belongs to user
+      const { resources: folders } = await foldersContainer.items
+        .query({
+          query: 'SELECT c.id FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: pages[0].folderId }, { name: '@userId', value: user.userId }]
+        })
+        .fetchAll();
+
+      if (folders.length === 0) {
         return { status: 404, jsonBody: { error: 'Page not found' } };
       }
 

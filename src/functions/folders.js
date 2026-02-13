@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const { getContainers } = require('../cosmosClient');
+const { authenticate } = require('../auth');
 const { v4: uuidv4 } = require('uuid');
 
 // ─── GET /api/folders ───────────────────────────────
@@ -8,10 +9,16 @@ app.http('getFolders', {
   authLevel: 'anonymous',
   route: 'api/folders',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { foldersContainer } = await getContainers();
       const { resources: folders } = await foldersContainer.items
-        .query('SELECT * FROM c')
+        .query({
+          query: 'SELECT * FROM c WHERE c.userId = @userId',
+          parameters: [{ name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       folders.sort((a, b) => a.name.localeCompare(b.name));
@@ -29,6 +36,9 @@ app.http('createFolder', {
   authLevel: 'anonymous',
   route: 'api/folders',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { foldersContainer } = await getContainers();
       const body = await request.json();
@@ -40,6 +50,7 @@ app.http('createFolder', {
       const folder = {
         id: uuidv4(),
         partitionKey: 'folder',
+        userId: user.userId,
         name: body.name.trim(),
         createdAt: new Date().toISOString()
       };
@@ -59,13 +70,19 @@ app.http('updateFolder', {
   authLevel: 'anonymous',
   route: 'api/folders/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { foldersContainer } = await getContainers();
       const id = request.params.id;
       const body = await request.json();
 
       const { resources: folders } = await foldersContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (folders.length === 0) {
@@ -90,12 +107,18 @@ app.http('deleteFolder', {
   authLevel: 'anonymous',
   route: 'api/folders/{id}',
   handler: async (request, context) => {
+    const user = await authenticate(request);
+    if (!user) return { status: 401, jsonBody: { error: 'Unauthorized' } };
+
     try {
       const { foldersContainer, pagesContainer } = await getContainers();
       const id = request.params.id;
 
       const { resources: folders } = await foldersContainer.items
-        .query({ query: 'SELECT * FROM c WHERE c.id = @id', parameters: [{ name: '@id', value: id }] })
+        .query({
+          query: 'SELECT * FROM c WHERE c.id = @id AND c.userId = @userId',
+          parameters: [{ name: '@id', value: id }, { name: '@userId', value: user.userId }]
+        })
         .fetchAll();
 
       if (folders.length === 0) {
