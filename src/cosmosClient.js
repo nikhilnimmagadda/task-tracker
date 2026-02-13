@@ -6,6 +6,8 @@ let client;
 let database;
 let tasksContainer;
 let commentsContainer;
+let foldersContainer;
+let pagesContainer;
 let useLocalFallback = false;
 
 // ─── Local JSON fallback for when Cosmos DB is unavailable ───
@@ -13,9 +15,12 @@ const DATA_FILE = path.join(__dirname, '..', 'data.json');
 
 function loadLocalData() {
   if (!fs.existsSync(DATA_FILE)) {
-    return { tasks: [], comments: [] };
+    return { tasks: [], comments: [], folders: [], pages: [] };
   }
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  if (!data.folders) data.folders = [];
+  if (!data.pages) data.pages = [];
+  return data;
 }
 
 function saveLocalData(data) {
@@ -104,8 +109,8 @@ function createLocalContainer(collectionName) {
  * Falls back to local JSON storage if Cosmos DB is unavailable.
  */
 async function getContainers() {
-  if (tasksContainer && commentsContainer) {
-    return { tasksContainer, commentsContainer };
+  if (tasksContainer && commentsContainer && foldersContainer && pagesContainer) {
+    return { tasksContainer, commentsContainer, foldersContainer, pagesContainer };
   }
 
   const endpoint = process.env.COSMOS_ENDPOINT;
@@ -139,8 +144,20 @@ async function getContainers() {
       });
       commentsContainer = cc;
 
+      const { container: fc } = await database.containers.createIfNotExists({
+        id: 'folders',
+        partitionKey: { paths: ['/partitionKey'] }
+      });
+      foldersContainer = fc;
+
+      const { container: pc } = await database.containers.createIfNotExists({
+        id: 'pages',
+        partitionKey: { paths: ['/folderId'] }
+      });
+      pagesContainer = pc;
+
       console.log('Connected to Cosmos DB at', endpoint);
-      return { tasksContainer, commentsContainer };
+      return { tasksContainer, commentsContainer, foldersContainer, pagesContainer };
     } catch (err) {
       console.error('Cosmos DB connection error:', err.message);
       // In Azure (production), don't fall back — surface the error
@@ -153,11 +170,13 @@ async function getContainers() {
 
   // Fallback to local file storage
   useLocalFallback = true;
-  if (!fs.existsSync(DATA_FILE)) saveLocalData({ tasks: [], comments: [] });
+  if (!fs.existsSync(DATA_FILE)) saveLocalData({ tasks: [], comments: [], folders: [], pages: [] });
   tasksContainer = createLocalContainer('tasks');
   commentsContainer = createLocalContainer('comments');
+  foldersContainer = createLocalContainer('folders');
+  pagesContainer = createLocalContainer('pages');
   console.log('Using local JSON file storage (data.json)');
-  return { tasksContainer, commentsContainer };
+  return { tasksContainer, commentsContainer, foldersContainer, pagesContainer };
 }
 
 module.exports = { getContainers };

@@ -4,9 +4,11 @@ import StatsBar from './components/StatsBar';
 import Controls from './components/Controls';
 import TaskList from './components/TaskList';
 import TaskModal from './components/TaskModal';
+import NotesApp from './components/NotesApp';
 import { fetchTasks, fetchAllTasks, fetchTask, createTask, updateTask, deleteTask as apiDeleteTask, addComment, deleteComment } from './api';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('tasks');
   const [tasks, setTasks] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -87,25 +89,31 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header />
-      <Controls
-        filter={filter}
-        sort={sort}
-        onFilterChange={setFilter}
-        onSortChange={setSort}
-        onNewTask={handleNewTask}
-      />
-      <StatsBar tasks={allTasks} />
-      <TaskList tasks={tasks} loading={loading} onTaskClick={handleEditTask} />
-      {modalOpen && (
-        <TaskModal
-          task={editingTask}
-          onClose={handleCloseModal}
-          onSave={handleSaveTask}
-          onDelete={handleDeleteTask}
-          onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
-        />
+      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      {activeTab === 'tasks' ? (
+        <>
+          <Controls
+            filter={filter}
+            sort={sort}
+            onFilterChange={setFilter}
+            onSortChange={setSort}
+            onNewTask={handleNewTask}
+          />
+          <StatsBar tasks={allTasks} />
+          <TaskList tasks={tasks} loading={loading} onTaskClick={handleEditTask} />
+          {modalOpen && (
+            <TaskModal
+              task={editingTask}
+              onClose={handleCloseModal}
+              onSave={handleSaveTask}
+              onDelete={handleDeleteTask}
+              onAddComment={handleAddComment}
+              onDeleteComment={handleDeleteComment}
+            />
+          )}
+        </>
+      ) : (
+        <NotesApp />
       )}
     </div>
   );
