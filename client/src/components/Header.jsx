@@ -23,6 +23,12 @@ export default function Header({ activeTab, onTabChange, userName, onLogout }) {
           📋 Tasks
         </button>
         <button
+          className={`nav-tab${activeTab === 'kanban' ? ' active' : ''}`}
+          onClick={() => onTabChange('kanban')}
+        >
+          📊 Board
+        </button>
+        <button
           className={`nav-tab${activeTab === 'notes' ? ' active' : ''}`}
           onClick={() => onTabChange('notes')}
         >

@@ -6,6 +6,7 @@ import Controls from './components/Controls';
 import TaskList from './components/TaskList';
 import TaskModal from './components/TaskModal';
 import NotesApp from './components/NotesApp';
+import KanbanBoard from './components/KanbanBoard';
 import logger from './logger';
 import { fetchTasks, fetchAllTasks, fetchTask, createTask, updateTask, deleteTask as apiDeleteTask, addComment, deleteComment, setCredential } from './api';
 
@@ -147,6 +148,16 @@ export default function App() {
     setEditingTask(null);
   };
 
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      const progress = newStatus === 'done' ? 100 : newStatus === 'in-progress' ? Math.max(allTasks.find(t => t.id === taskId)?.progress || 0, 10) : allTasks.find(t => t.id === taskId)?.progress || 0;
+      await updateTask(taskId, { status: newStatus, progress });
+      loadTasks();
+    } catch {
+      alert('Failed to update task status');
+    }
+  };
+
   // Show login screen if not authenticated
   if (!isAuthenticated) {
     return (
@@ -188,6 +199,26 @@ export default function App() {
           />
           <StatsBar tasks={allTasks} />
           <TaskList tasks={tasks} loading={loading} onTaskClick={handleEditTask} />
+          {modalOpen && (
+            <TaskModal
+              task={editingTask}
+              onClose={handleCloseModal}
+              onSave={handleSaveTask}
+              onDelete={handleDeleteTask}
+              onAddComment={handleAddComment}
+              onDeleteComment={handleDeleteComment}
+            />
+          )}
+        </>
+      ) : activeTab === 'kanban' ? (
+        <>
+          <KanbanBoard
+            tasks={allTasks}
+            loading={loading}
+            onTaskClick={handleEditTask}
+            onStatusChange={handleStatusChange}
+            onNewTask={handleNewTask}
+          />
           {modalOpen && (
             <TaskModal
               task={editingTask}
