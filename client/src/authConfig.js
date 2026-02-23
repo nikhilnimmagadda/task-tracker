@@ -1,16 +1,7 @@
-export const msalConfig = {
-  auth: {
-    clientId: import.meta.env.VITE_AZURE_CLIENT_ID || 'YOUR_CLIENT_ID',
-    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_TENANT_ID || 'YOUR_TENANT_ID'}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
-  },
-  cache: {
-    cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false,
-  }
-};
+import logger from './logger';
 
-export const loginRequest = {
-  scopes: [`api://${import.meta.env.VITE_AZURE_CLIENT_ID || 'YOUR_CLIENT_ID'}/access_as_user`]
-};
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '254093090694-4ku52fdsljavvlfuvmlobf9gvrgd4dtu.apps.googleusercontent.com';
+
+logger.info('[AuthConfig] Google OAuth config created', {
+  clientId: GOOGLE_CLIENT_ID?.substring(0, 12) + '...'
+});

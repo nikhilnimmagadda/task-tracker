@@ -1,81 +1,67 @@
-const jwt = require('jsonwebtoken');
-const jwksClient = require('jwks-rsa');
+const { OAuth2Client } = require('google-auth-library');
+const logger = require('./logger');
 
 // ─── Configuration ──────────────────────────────────
-const TENANT_ID = process.env.AZURE_TENANT_ID;
-const CLIENT_ID = process.env.AZURE_CLIENT_ID;
-const ISSUER = `https://login.microsoftonline.com/${TENANT_ID}/v2.0`;
-const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
-// JWKS client for fetching Microsoft's signing keys
-const client = jwksClient({
-  jwksUri: JWKS_URI,
-  cache: true,
-  cacheMaxAge: 86400000, // 24 hours
-  rateLimit: true,
-  jwksRequestsPerMinute: 10
-});
+const oAuth2Client = new OAuth2Client();
 
 /**
- * Get signing key from Microsoft's JWKS endpoint
+ * Verify a Google access token by calling Google's userinfo endpoint.
  */
-function getSigningKey(header, callback) {
-  client.getSigningKey(header.kid, (err, key) => {
-    if (err) return callback(err);
-    callback(null, key.getPublicKey());
+async function verifyAccessToken(accessToken) {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
+  if (!res.ok) throw new Error('Invalid access token');
+  return res.json();
 }
 
 /**
- * Verify and decode a JWT access token from Entra ID.
+ * Extract user info from Google userinfo response.
  */
-function verifyToken(token) {
-  return new Promise((resolve, reject) => {
-    jwt.verify(token, getSigningKey, {
-      audience: `api://${CLIENT_ID}`,
-      issuer: ISSUER,
-      algorithms: ['RS256']
-    }, (err, decoded) => {
-      if (err) reject(err);
-      else resolve(decoded);
-    });
-  });
-}
-
-/**
- * Extract user info from a validated token.
- */
-function extractUser(token) {
+function extractUser(profile) {
   return {
-    userId: token.oid || token.sub,
-    name: token.name || token.preferred_username || 'Unknown',
-    email: token.preferred_username || token.email || ''
+    userId: profile.sub,
+    name: profile.name || profile.email || 'Unknown',
+    email: profile.email || ''
   };
 }
 
 /**
  * Authentication middleware for Azure Functions.
- * Extracts and validates the Bearer token from the Authorization header.
+ * Extracts and validates the Bearer token (Google access token) from the Authorization header.
  *
- * When AZURE_TENANT_ID is not set (local dev), returns a mock user
- * so development works without Entra ID configuration.
+ * When GOOGLE_CLIENT_ID is not set (local dev), returns a mock user
+ * so development works without Google OAuth configuration.
  */
 async function authenticate(request) {
   // Skip auth in local development if not configured
-  if (!TENANT_ID || !CLIENT_ID) {
+  if (!GOOGLE_CLIENT_ID) {
+    logger.info('[Auth] No GOOGLE_CLIENT_ID configured — using mock user');
     return { userId: 'local-dev', name: 'Local Developer', email: 'dev@local' };
   }
 
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logger.warn('[Auth] Missing or invalid Authorization header', {
+      hasHeader: !!authHeader,
+      url: request.url
+    });
     return null;
   }
 
   try {
-    const decoded = await verifyToken(authHeader.substring(7));
-    return extractUser(decoded);
+    logger.info('[Auth] Verifying Google token...', { url: request.url });
+    const profile = await verifyAccessToken(authHeader.substring(7));
+    const user = extractUser(profile);
+    logger.info('[Auth] Token verified', { userId: user.userId, name: user.name });
+    return user;
   } catch (err) {
-    console.error('Token validation failed:', err.message);
+    logger.error('[Auth] Token validation failed', err, {
+      errorName: err.name,
+      url: request.url
+    });
     return null;
   }
 }

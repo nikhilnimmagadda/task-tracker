@@ -8,8 +8,7 @@
     "COSMOS_DATABASE": "tasktracker",
     "COSMOS_CONTAINER_TASKS": "tasks",
     "COSMOS_CONTAINER_COMMENTS": "comments",
-    "AZURE_TENANT_ID": "<your-entra-id-tenant-id>",
-    "AZURE_CLIENT_ID": "<your-entra-id-app-client-id>"
+    "GOOGLE_CLIENT_ID": "254093090694-4ku52fdsljavvlfuvmlobf9gvrgd4dtu.apps.googleusercontent.com"
   },
   "Host": {
     "CORS": "*",

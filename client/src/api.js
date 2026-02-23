@@ -1,37 +1,18 @@
-import { msalInstance } from './main';
-import { loginRequest } from './authConfig';
-
 const BASE = '';
 
-/**
- * Get access token silently, falling back to interactive popup.
- */
-async function getAccessToken() {
-  if (!msalInstance) return null;
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length === 0) return null;
+let _credential = null;
 
-  try {
-    const response = await msalInstance.acquireTokenSilent({
-      ...loginRequest,
-      account: accounts[0]
-    });
-    return response.accessToken;
-  } catch {
-    try {
-      const response = await msalInstance.acquireTokenPopup(loginRequest);
-      return response.accessToken;
-    } catch {
-      return null;
-    }
-  }
+/**
+ * Set the Google credential (access token) for authenticated requests.
+ */
+export function setCredential(token) {
+  _credential = token;
 }
 
 export async function api(url, options = {}) {
-  const token = await getAccessToken();
   const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (_credential) {
+    headers['Authorization'] = `Bearer ${_credential}`;
   }
 
   const res = await fetch(`${BASE}${url}`, {
@@ -41,10 +22,6 @@ export async function api(url, options = {}) {
   });
 
   if (res.status === 401) {
-    const accounts = msalInstance?.getAllAccounts() || [];
-    if (accounts.length > 0) {
-      try { await msalInstance.acquireTokenPopup(loginRequest); } catch { /* user cancelled */ }
-    }
     throw new Error('Unauthorized');
   }
 
